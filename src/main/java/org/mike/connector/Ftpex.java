@@ -15,9 +15,7 @@ import org.apache.log4j.Logger;
 public class Ftpex {
 
 	private static final Logger log=Logger.getLogger(Ftpex.class);
-	
-	private final String host="ftpex.edi.su";
-	/*private final String host="ftpex.ua.int";*/
+
 	private Config conf;
 	private FTPClient client;
 	
@@ -27,7 +25,7 @@ public class Ftpex {
 		this.client=new FTPClient();
 		try {
 
-			this.client.connect(this.host);
+			this.client.connect(this.conf.server);
 			this.client.login(this.conf.login, this.conf.password);
 		} catch (SocketException e) {
 			log.error(e);
@@ -41,7 +39,7 @@ public class Ftpex {
 		HashMap<String, byte[]>files = new HashMap<>();
 		try {
 			if(!this.client.isConnected()) {
-				this.client.connect(this.host);
+				this.client.connect(this.conf.server);
 				this.client.login(this.conf.login, this.conf.password);
 			}
 			changeSrvFolder(folder);
@@ -63,7 +61,7 @@ public class Ftpex {
 	public void uploadFiles(String folder, Map<String,byte[]> files) {
 		try {
 			if(!this.client.isConnected()) {
-				this.client.connect(this.host);
+				this.client.connect(this.conf.server);
 				this.client.login(this.conf.login, this.conf.password);
 			}			
 			changeSrvFolder(folder);

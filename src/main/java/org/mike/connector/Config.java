@@ -12,6 +12,9 @@ public class Config {
 	public RunWithInterval runWithInterval;
 
 	@XmlElement
+	public String server;
+
+	@XmlElement
 	public String login;
 
 	@XmlElement
@@ -25,7 +28,7 @@ public class Config {
 	
 	@Override
 	public String toString() {
-		return "Config [runWithInterval=" + runWithInterval + ", login=" + login
+		return "Config [runWithInterval=" + runWithInterval + ", server=" + server + ", login=" + login
 				+ ", password=" + password + ", inbound=" + inbound + ", outbound=" + outbound + "]";
 	}	
 
