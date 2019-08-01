@@ -3,78 +3,81 @@ package org.mike.connector;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.SocketException;
+import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import org.apache.commons.net.PrintCommandListener;
 import org.apache.commons.net.ftp.FTP;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.log4j.Logger;
 
 public class Ftpex {
 
-	private static final Logger log=Logger.getLogger(Ftpex.class);
+	private static final Logger log = Logger.getLogger(Ftpex.class);
 
 	private Config conf;
 	private FTPClient client;
-	
+
 	public Ftpex(Config conf) {
-
-		this.conf=conf;
-		this.client=new FTPClient();
-		try {
-
-			this.client.connect(this.conf.server);
-			this.client.login(this.conf.login, this.conf.password);
-		} catch (SocketException e) {
-			log.error(e);
-		} catch (IOException e) {
-			log.error(e);
-		}
+		this.conf = conf;
+        connect();
 	}
-	
-	public HashMap<String, byte[]>getFiles(String folder,String filter) {
 
-		HashMap<String, byte[]>files = new HashMap<>();
-		try {
-			if(!this.client.isConnected()) {
-				this.client.connect(this.conf.server);
-				this.client.login(this.conf.login, this.conf.password);
-			}
-			changeSrvFolder(folder);
-			for (String name : this.client.listNames()) {
-				if(Pattern.matches(filter, name)) {
-					byte[]file=getFile(name);
-					if(file!=null) {
-						files.put(name, file);
-						removeFile(name);
-					}	
-				}								
-			}
-		} catch (Exception e) {
-			log.error(e);
-		}
+	public Map<String, byte[]> getFiles(String folder, String filter) {
+        return getFiles(folder, filter, true);
+	}
+
+    private Map<String, byte[]> getFiles(String folder, String filter, boolean reconnect) {
+        final Map<String, byte[]> files = new HashMap<>();
+        try{
+            checkConnection();
+            changeSrvFolder(folder);
+            for (String name : this.client.listNames()) {
+                if(Pattern.matches(filter, name)) {
+                    byte[]file = getFile(name);
+                    if(file != null) {
+                        files.put(name, file);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            if(reconnect){
+                log.info("Connection lost.. try to reconnect ..");
+                reConnect();
+                return getFiles(folder, filter, false);
+            } else {
+                log.error(e);
+            }
+        }
         return files;
-	}
+    }
 
-	public void uploadFiles(String folder, Map<String,byte[]> files) {
-		try {
-			if(!this.client.isConnected()) {
-				this.client.connect(this.conf.server);
-				this.client.login(this.conf.login, this.conf.password);
-			}			
-			changeSrvFolder(folder);
-			for (String name : files.keySet()) {
-				uploadFile(name, files.get(name));					
-			}
-		} catch (IOException e) {
-			log.error(e);
-		}		
+    public void uploadFiles(String folder, Map<String,byte[]> files) {
+        uploadFiles(folder, files, true);
+    }
+
+	private void uploadFiles(String folder, Map<String,byte[]> files, boolean reconnect) {
+        try {
+            checkConnection();
+            changeSrvFolder(folder);
+            for (final String name : files.keySet()) {
+                uploadFile(name, files.get(name));
+            }
+        } catch (Exception e) {
+            if(reconnect){
+                log.info("Connection lost.. try to reconnect ..");
+                reConnect();
+                uploadFiles(folder, files, false);
+            } else {
+                log.error(e);
+            }
+        }
 	}
 	
 	private byte[] getFile(String fileName) {
-		ByteArrayOutputStream baos=new ByteArrayOutputStream();
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		try {
 			this.client.setFileType(FTP.BINARY_FILE_TYPE);
 			this.client.retrieveFile(fileName, baos);
@@ -88,40 +91,69 @@ public class Ftpex {
 		return null;
 	}
 
-	private boolean removeFile(String fileName) {
+	public void removeFile(String fileName) {
 		try {
-			if(this.client.deleteFile(fileName)) {
-				log.info("file ["+fileName+"] removed from "+this.client.getRemoteAddress()+"::"+this.conf.login+"::"+this.client.printWorkingDirectory());
-				return true;
-			}			
+			if(this.client.deleteFile(fileName))
+                log.info("file ["+fileName+"] removed from "+this.client.getRemoteAddress()+"::"+this.conf.login+"::"+this.client.printWorkingDirectory());
 		} catch (IOException e) {
 			log.error(e);
 		}
-		return false;
 	}
 
-	private boolean uploadFile(String fileName,byte[]file) {
-		ByteArrayInputStream bais=new ByteArrayInputStream(file);
-		try {
-			this.client.setFileType(FTP.BINARY_FILE_TYPE);
-			if(this.client.storeFile(fileName, bais)) {
-				log.info("file ["+fileName+"] uploaded to "+this.client.getRemoteAddress()+"::"+this.conf.login+"::"+this.client.printWorkingDirectory());
-				return true;
-			}				
-		} catch (IOException e) {
-			log.error(e);
-		}
-		return false;
+	private void uploadFile(String fileName, byte[]file) throws Exception {
+		ByteArrayInputStream bais = new ByteArrayInputStream(file);
+        this.client.setFileType(FTP.BINARY_FILE_TYPE);
+        if(this.client.storeFile(fileName, bais))
+            log.info("file ["+fileName+"] uploaded to "+this.client.getRemoteAddress()+"::"+this.conf.login+"::"+this.client.printWorkingDirectory());
 	}
 	
-	private void changeSrvFolder(String folder) {
-		try {
-			while(!this.client.printWorkingDirectory().equals("/"))
-				this.client.changeToParentDirectory();
-			this.client.changeWorkingDirectory(folder);
-		} catch (Exception e) {
-			log.error(e);
-		}
+	private void changeSrvFolder(String folder) throws Exception {
+        while(!this.client.printWorkingDirectory().equals("/"))
+            this.client.changeToParentDirectory();
+        this.client.changeWorkingDirectory(folder);
 	}
+
+    public void close() {
+        try {
+            if(this.client != null)
+                this.client.disconnect();
+        } catch (Exception e){
+            log.error(e);
+        }
+    }
+
+    private void reConnect() {
+        try {
+            close();
+            connect();
+        } catch (Exception e){
+            log.error(e);
+        }
+    }
+
+    public void checkConnection() {
+        if(this.client == null || !this.client.isConnected())
+            connect();
+    }
+
+    public void connect(){
+        try {
+            this.client = new FTPClient();
+
+            if(!this.client.isConnected()) {
+                this.client.connect(this.conf.server);
+                this.client.login(this.conf.login, this.conf.password);
+            }
+            if(conf.passive_mode){
+                this.client.enterLocalPassiveMode();
+                //this.client.enterRemotePassiveMode();
+            }
+            if(conf.debug){
+                this.client.addProtocolCommandListener(new PrintCommandListener(new PrintWriter(System.out)));
+            }
+        } catch (Exception e){
+            log.error(e);
+        }
+    }
 
 }

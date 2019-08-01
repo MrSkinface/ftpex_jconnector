@@ -1,7 +1,7 @@
 package org.mike.connector;
 
+import java.util.Collections;
 import java.util.List;
-
 import javax.xml.bind.annotation.*;
 
 @XmlType
@@ -10,21 +10,38 @@ public class Config {
 
 	@XmlElement(name="run_with_intervar")
 	public RunWithInterval runWithInterval;
-
 	@XmlElement
 	public String server;
-
+	@XmlElement
+	public boolean passive_mode;
+	@XmlElement
+	public boolean debug;
 	@XmlElement
 	public String login;
-
 	@XmlElement
 	public String password;
-
 	@XmlElement
 	public Direction inbound;
-
 	@XmlElement
 	public Direction outbound;
+
+	public long intervalValue(){
+	    return isDaemon() ? runWithInterval.value * 1000 : 0 ;
+    }
+
+	public boolean isDaemon(){
+        return runWithInterval != null && runWithInterval.enabled;
+	}
+
+    public List<Folder> inboundFolders() {
+	    if(inbound == null || inbound.folders == null) return Collections.emptyList();
+        return this.inbound.folders;
+    }
+
+    public List<Folder> outboundFolders() {
+        if(outbound == null || outbound.folders == null) return Collections.emptyList();
+        return this.outbound.folders;
+    }
 	
 	@Override
 	public String toString() {
@@ -39,7 +56,6 @@ class RunWithInterval {
 
 	@XmlAttribute
 	public boolean enabled;
-
 	@XmlValue
 	public long value;
 	
@@ -78,10 +94,8 @@ class Folder {
 
 	@XmlElement
 	public String doctype;
-
 	@XmlElement
 	public String localPath;
-
 	@XmlElement
 	public String serverPath;
 	

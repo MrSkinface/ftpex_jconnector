@@ -11,60 +11,33 @@ import java.nio.file.Paths;
 
 public class Connector {
 
-    private static final Logger log=Logger.getLogger(Connector.class);
+    private static final Logger log = Logger.getLogger(Connector.class);
 
-    public static Config config;
-
-    public Connector() {
+    public Connector(Config config) {
         do {
             log.info("start");
-            new Handler();
+            new Handler(config);
             log.info("end");
-            try {
-                if(isDaemon()){
-                    Thread.sleep(config.runWithInterval.value * 1000);
-                }
-            } catch (Exception e) {
-                log.debug(e);
-            }
-
-        } while (isDaemon());
+            sleep(config.intervalValue());
+        } while (config.isDaemon());
     }
 
-    private static void loadConfig(String path) throws JAXBException, FileNotFoundException {
-        JAXBContext jc;
-        jc=JAXBContext.newInstance(Config.class);
-        Unmarshaller um=jc.createUnmarshaller();
-        config = (Config) um.unmarshal(new FileInputStream(Paths.get(path).toString()));
+    public static void main(String[] args) throws Exception {
+        final String configFile = (args != null && args.length > 0) ? args[0] : "config/folders-config.xml" ;
+        new Connector(initConfig(configFile));
     }
 
-    private boolean isDaemon(){
-        try{
-            return Boolean.valueOf(config.runWithInterval.enabled);
-        } catch (NullPointerException e) {
-            return false;
-        }
+    private static Config initConfig(String path) throws JAXBException, FileNotFoundException {
+        Unmarshaller um = JAXBContext.newInstance(Config.class).createUnmarshaller();
+        return (Config)um.unmarshal(new FileInputStream(Paths.get(path).toString()));
     }
 
-    public static void main(String[] args) {
+    private static void sleep(long millis){
         try {
-            if(args != null && args.length > 0){
-                loadConfig(args[0]);
-            } else {
-                loadConfig("config/folders-config.xml");
-            }
-        } catch (JAXBException e) {
-            log.error(e);
-            System.exit(12);
-        } catch (FileNotFoundException e) {
-            try{
-                loadConfig("config/folders-config.xml");
-            } catch (Exception e1){
-                log.error(e1);
-                System.exit(13);
-            }
+            Thread.sleep(millis);
+        } catch (Exception e) {
+            log.debug(e);
         }
-        new Connector();
     }
 
 }
