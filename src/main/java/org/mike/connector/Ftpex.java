@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
 import org.apache.commons.net.PrintCommandListener;
 import org.apache.commons.net.ftp.FTP;
 import org.apache.commons.net.ftp.FTPClient;
+import org.apache.commons.net.ftp.FTPConnectionClosedException;
 import org.apache.log4j.Logger;
 
 public class Ftpex {
@@ -49,7 +50,7 @@ public class Ftpex {
             if(conf.debug){
                 this.client.addProtocolCommandListener(new PrintCommandListener(new PrintWriter(System.out)));
             }
-        } catch (ConnectException e){
+        } catch (ConnectException | FTPConnectionClosedException e){
             if(attemptCounter >= MAX_RECONNECT_ATTEMPTS)
                 throw new Exception("Maximum reconnects exceeded");
             log.warn("Connection lost.. try to reconnect ["+attemptCounter+"] ..");
