@@ -26,7 +26,7 @@ public class Connector {
         this.ftpex = new Ftpex(config);
         do {
             try {
-                log.info("start");
+                log.info("start [v2.1.2]");
                 ftpex.connect();
 
                 // inbound
@@ -48,7 +48,7 @@ public class Connector {
                 log.info("end");
             } catch (Exception e){
                 e.printStackTrace();
-                log.error(e);
+                log.error(e.getMessage(), e);
             } finally {
                 ftpex.close();
             }
