@@ -2,11 +2,8 @@ package org.mike.connector;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.ConnectException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -31,21 +28,22 @@ public class Ftpex {
 	}
 
     void connect() throws Exception {
-	    this._connect(1);
+        this._connect(1, false);
     }
 
-    void _connect(int attemptCounter) throws Exception {
+    private void _connect(int attemptCounter, final boolean forceReconnect) throws Exception {
         try {
-            if(this.client == null)
+            if(this.client == null || forceReconnect)
                 this.client = new FTPClient();
 
-            if(!this.client.isConnected()) {
+            if(forceReconnect) this.close();
+
+            if(!this.client.isConnected() || forceReconnect) {
                 this.client.connect(this.conf.server);
                 this.client.login(this.conf.login, this.conf.password);
             }
             if(conf.passive_mode){
                 this.client.enterLocalPassiveMode();
-                //this.client.enterRemotePassiveMode();
             }
             if(conf.debug){
                 this.client.addProtocolCommandListener(new PrintCommandListener(new PrintWriter(System.out)));
@@ -54,7 +52,7 @@ public class Ftpex {
             if(attemptCounter >= MAX_RECONNECT_ATTEMPTS)
                 throw new Exception("Maximum reconnects exceeded [_connect]");
             log.warn("Connection lost [_connect] .. try to reconnect ["+attemptCounter+"] ..");
-            this._connect(++attemptCounter);
+            this._connect(++attemptCounter, true);
         }
     }
 
@@ -68,11 +66,11 @@ public class Ftpex {
     }
 
     Map<String, byte[]> getFiles(final String folder, final String filter) throws Exception {
-        connect();
+        _connect(1, true);
         return _getFiles(folder, filter, 1);
 	}
 
-    Map<String, byte[]> _getFiles(final String folder, final String filter, int attemptCounter) throws Exception {
+    private Map<String, byte[]> _getFiles(final String folder, final String filter, int attemptCounter) throws Exception {
         final Map<String, byte[]> files = new HashMap<>();
 	    try{
             changeSrvFolder(folder);
@@ -88,38 +86,10 @@ public class Ftpex {
             if(attemptCounter >= MAX_RECONNECT_ATTEMPTS)
                 throw new Exception("Maximum reconnects exceeded [_getFiles]");
             log.warn("Connection lost [_getFiles] .. try to reconnect ["+attemptCounter+"] ..");
+            this._connect(++attemptCounter, true);
             return this._getFiles(folder, filter, ++attemptCounter);
         }
         return files;
-    }
-
-    void uploadFiles(final String localFolder, final String srvFolder, final Map<String,byte[]> files) throws Exception {
-        connect();
-        _uploadFiles(localFolder, srvFolder, files, 1);
-    }
-
-    private void _uploadFiles(final String localFolder, final String srvFolder, final Map<String,byte[]> files, int attemptCounter) throws Exception {
-	    try{
-            changeSrvFolder(srvFolder);
-            for (final String name : files.keySet()) {
-                uploadFile(name, files.get(name));
-                removeLocalFile(name, localFolder);
-            }
-        } catch (ConnectException | FTPConnectionClosedException e){
-            if(attemptCounter >= MAX_RECONNECT_ATTEMPTS)
-                throw new Exception("Maximum reconnects exceeded [_uploadFiles]");
-            log.warn("Connection lost [_uploadFiles] .. try to reconnect ["+attemptCounter+"] ..");
-            this._uploadFiles(localFolder, srvFolder, files, ++attemptCounter);
-        }
-    }
-
-    private void removeLocalFile(final String name, final String path) {
-        try {
-            Files.delete(Paths.get(path).resolve(name));
-            log.info("file ["+name+"] removed from ["+path+"] O.K.");
-        } catch (IOException e) {
-            log.error(e.getMessage(), e);
-        }
     }
 	
 	private byte[] getFile(final String fileName) throws Exception {
@@ -139,6 +109,7 @@ public class Ftpex {
             if(attemptCounter >= MAX_RECONNECT_ATTEMPTS)
                 throw new Exception("Maximum reconnects exceeded [_getFile]");
             log.warn("Connection lost [_getFile] .. try to reconnect ["+attemptCounter+"] ..");
+            this._connect(++attemptCounter, true);
             return this._getFile(fileName, ++attemptCounter);
         }
         return null;
@@ -149,7 +120,7 @@ public class Ftpex {
         _removeFile(fileName, 1);
 	}
 
-    void _removeFile(final String fileName, int attemptCounter) throws Exception {
+    private void _removeFile(final String fileName, int attemptCounter) throws Exception {
 	    try{
             if(this.client.deleteFile(fileName))
                 log.info("file ["+fileName+"] removed from "+this.client.getRemoteAddress()+"::"+this.conf.login+"::"+this.client.printWorkingDirectory());
@@ -157,11 +128,12 @@ public class Ftpex {
             if(attemptCounter >= MAX_RECONNECT_ATTEMPTS)
                 throw new Exception("Maximum reconnects exceeded [_removeFile]");
             log.warn("Connection lost [_removeFile] .. try to reconnect ["+attemptCounter+"] ..");
+            this._connect(++attemptCounter, true);
             this._removeFile(fileName, ++attemptCounter);
         }
     }
 
-	private void uploadFile(final String fileName, final byte[] file) throws Exception {
+    void uploadFile(final String fileName, final byte[] file) throws Exception {
         connect();
         _uploadFile(fileName, file, 1);
 	}
@@ -175,6 +147,7 @@ public class Ftpex {
             if(attemptCounter >= MAX_RECONNECT_ATTEMPTS)
                 throw new Exception("Maximum reconnects exceeded [_uploadFile]");
             log.warn("Connection lost [_uploadFile] .. try to reconnect ["+attemptCounter+"] ..");
+            this._connect(++attemptCounter, true);
             this._uploadFile(fileName, file, ++attemptCounter);
         }
     }
@@ -193,6 +166,7 @@ public class Ftpex {
             if(attemptCounter >= MAX_RECONNECT_ATTEMPTS)
                 throw new Exception("Maximum reconnects exceeded [_changeSrvFolder]");
             log.warn("Connection lost [_changeSrvFolder] .. try to reconnect ["+attemptCounter+"] ..");
+            this._connect(++attemptCounter, true);
             this._changeSrvFolder(folder, ++attemptCounter);
         }
     }

@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -26,9 +25,8 @@ public class Connector {
         this.ftpex = new Ftpex(config);
         do {
             try {
-                log.info("start [v2.1.2]");
+                log.info("start [v2.1.3]");
                 ftpex.connect();
-
                 // inbound
                 for (final Folder folder : config.inboundFolders()) {
                     final Map<String, byte[]> result = ftpex.getFiles(folder.serverPath, folder.doctype);
@@ -40,11 +38,18 @@ public class Connector {
 
                 // outbound
                 for (final Folder folder : config.outboundFolders()) {
-                    final Map<String, byte[]> files = prepareFiles(folder);
-                    log.info("Got [" + files.size() + "] files for type [" + folder.doctype + "] from local path [" + folder.localPath + "]");
-                    ftpex.uploadFiles(folder.localPath, folder.serverPath, files);
+                    final File dir = new File(folder.localPath);
+                    final String[] listNames = Objects.requireNonNull(dir.list((dir1, name1) -> Pattern.matches(folder.doctype, name1)));
+                    log.info("Got [" + listNames.length + "] files for type [" + folder.doctype + "] from local path [" + folder.localPath + "]");
+                    for (final String name : listNames) {
+                        try {
+                            ftpex.uploadFile(name.replaceAll("[а-яА-ЯёЁ ]", ""), Files.readAllBytes(Paths.get(folder.localPath).resolve(name)));
+                            removeLocalFile(name, folder.localPath);
+                        } catch (IOException e) {
+                            log.error(e);
+                        }
+                    }
                 }
-
                 log.info("end");
             } catch (Exception e){
                 e.printStackTrace();
@@ -54,6 +59,15 @@ public class Connector {
             }
             sleep(config.intervalValue());
         } while (config.isDaemon());
+    }
+
+    private void removeLocalFile(final String name, final String path) {
+        try {
+            Files.delete(Paths.get(path).resolve(name));
+            log.info("file ["+name+"] removed from ["+path+"] O.K.");
+        } catch (IOException e) {
+            log.error(e.getMessage(), e);
+        }
     }
 
     private void writeResult(final Folder folder, final Map<String, byte[]> result) {
@@ -70,20 +84,6 @@ public class Connector {
                 log.error(e);
             }
         }
-    }
-
-    private Map<String, byte[]> prepareFiles(final Folder folder) {
-        final Map<String, byte[]>files = new HashMap<>();
-        File dir = new File(folder.localPath);
-        for (String name : Objects.requireNonNull(dir.list((dir1, name1) -> Pattern.matches(folder.doctype, name1)))) {
-            try {
-                files.put(name.replaceAll("[а-яА-ЯёЁ ]", ""), Files.readAllBytes(Paths.get(folder.localPath).resolve(name)));
-                log.info("file [" + name + "] extracted from [" + folder.localPath + "]");
-            } catch (IOException e) {
-                log.error(e);
-            }
-        }
-        return files;
     }
 
     public static void main(String[] args) throws Exception {
