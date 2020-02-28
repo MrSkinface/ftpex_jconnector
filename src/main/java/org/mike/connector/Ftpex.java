@@ -152,7 +152,7 @@ public class Ftpex {
         }
     }
 	
-	private void changeSrvFolder(final String folder) throws Exception {
+	void changeSrvFolder(final String folder) throws Exception {
         connect();
         _changeSrvFolder(folder, 1);
 	}

@@ -25,7 +25,7 @@ public class Connector {
         this.ftpex = new Ftpex(config);
         do {
             try {
-                log.info("start [v2.1.3]");
+                log.info("start [v2.1.4]");
                 ftpex.connect();
                 // inbound
                 for (final Folder folder : config.inboundFolders()) {
@@ -41,6 +41,7 @@ public class Connector {
                     final File dir = new File(folder.localPath);
                     final String[] listNames = Objects.requireNonNull(dir.list((dir1, name1) -> Pattern.matches(folder.doctype, name1)));
                     log.info("Got [" + listNames.length + "] files for type [" + folder.doctype + "] from local path [" + folder.localPath + "]");
+                    ftpex.changeSrvFolder(folder.serverPath);
                     for (final String name : listNames) {
                         try {
                             ftpex.uploadFile(name.replaceAll("[а-яА-ЯёЁ ]", ""), Files.readAllBytes(Paths.get(folder.localPath).resolve(name)));
