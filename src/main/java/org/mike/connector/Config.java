@@ -15,6 +15,8 @@ public class Config {
 	@XmlElement
 	public boolean passive_mode;
 	@XmlElement
+	public boolean use_epsv;
+	@XmlElement
 	public boolean debug;
 	@XmlElement
 	public String login;
@@ -34,12 +36,12 @@ public class Config {
 	}
 
     public List<Folder> inboundFolders() {
-	    if(inbound == null || inbound.folders == null) return Collections.emptyList();
+	    if (inbound == null || inbound.folders == null) return Collections.emptyList();
         return this.inbound.folders;
     }
 
     public List<Folder> outboundFolders() {
-        if(outbound == null || outbound.folders == null) return Collections.emptyList();
+        if (outbound == null || outbound.folders == null) return Collections.emptyList();
         return this.outbound.folders;
     }
 	

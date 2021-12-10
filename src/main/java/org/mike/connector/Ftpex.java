@@ -33,22 +33,25 @@ public class Ftpex {
 
     private void _connect(int attemptCounter, final boolean forceReconnect) throws Exception {
         try {
-            if(this.client == null || forceReconnect)
+            if (this.client == null || forceReconnect)
                 this.client = new FTPClient();
 
-            if(forceReconnect) this.close();
+            if (forceReconnect) this.close();
 
-            if(!this.client.isConnected() || forceReconnect) {
+            if (!this.client.isConnected() || forceReconnect) {
                 this.client.connect(this.conf.server);
                 this.client.login(this.conf.login, this.conf.password);
             }
-            if(conf.passive_mode){
+            if (conf.passive_mode){
                 this.client.enterLocalPassiveMode();
             }
-            if(conf.debug){
+            if (conf.use_epsv){
+                this.client.setUseEPSVwithIPv4(true);
+            }
+            if (conf.debug){
                 this.client.addProtocolCommandListener(new PrintCommandListener(new PrintWriter(System.out)));
             }
-        } catch (ConnectException | FTPConnectionClosedException e){
+        } catch (ConnectException | FTPConnectionClosedException e) {
             if(attemptCounter >= MAX_RECONNECT_ATTEMPTS)
                 throw new Exception("Maximum reconnects exceeded [_connect]");
             log.warn("Connection lost [_connect] .. try to reconnect ["+attemptCounter+"] ..");
@@ -58,7 +61,7 @@ public class Ftpex {
 
     void close() {
         try {
-            if(this.client != null)
+            if (this.client != null)
                 this.client.disconnect();
         } catch (Exception e){
             log.error(e.getMessage(), e);
@@ -72,18 +75,18 @@ public class Ftpex {
 
     private Map<String, byte[]> _getFiles(final String folder, final String filter, int attemptCounter) throws Exception {
         final Map<String, byte[]> files = new HashMap<>();
-	    try{
+	    try {
             changeSrvFolder(folder);
             for (final String name : this.client.listNames()) {
-                if(Pattern.matches(filter, name)) {
+                if (Pattern.matches(filter, name)) {
                     final byte[]file = getFile(name);
-                    if(file != null) {
+                    if (file != null) {
                         files.put(name, file);
                     }
                 }
             }
-        } catch (ConnectException | FTPConnectionClosedException e){
-            if(attemptCounter >= MAX_RECONNECT_ATTEMPTS)
+        } catch (ConnectException | FTPConnectionClosedException e) {
+            if (attemptCounter >= MAX_RECONNECT_ATTEMPTS)
                 throw new Exception("Maximum reconnects exceeded [_getFiles]");
             log.warn("Connection lost [_getFiles] .. try to reconnect ["+attemptCounter+"] ..");
             this._connect(++attemptCounter, true);
@@ -98,15 +101,15 @@ public class Ftpex {
 	}
 
     private byte[] _getFile(final String fileName, int attemptCounter) throws Exception {
-        try(final ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+        try (final ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             this.client.setFileType(FTP.BINARY_FILE_TYPE);
             this.client.retrieveFile(fileName, baos);
-            if(baos.size() != 0) {
+            if (baos.size() != 0) {
                 log.info("file ["+fileName+"] downloaded from "+this.client.getRemoteAddress()+"::"+this.conf.login+"::"+this.client.printWorkingDirectory());
                 return baos.toByteArray();
             }
-        } catch (ConnectException | FTPConnectionClosedException e){
-            if(attemptCounter >= MAX_RECONNECT_ATTEMPTS)
+        } catch (ConnectException | FTPConnectionClosedException e) {
+            if (attemptCounter >= MAX_RECONNECT_ATTEMPTS)
                 throw new Exception("Maximum reconnects exceeded [_getFile]");
             log.warn("Connection lost [_getFile] .. try to reconnect ["+attemptCounter+"] ..");
             this._connect(++attemptCounter, true);
@@ -121,11 +124,11 @@ public class Ftpex {
 	}
 
     private void _removeFile(final String fileName, int attemptCounter) throws Exception {
-	    try{
-            if(this.client.deleteFile(fileName))
+	    try {
+            if (this.client.deleteFile(fileName))
                 log.info("file ["+fileName+"] removed from "+this.client.getRemoteAddress()+"::"+this.conf.login+"::"+this.client.printWorkingDirectory());
-        } catch (ConnectException | FTPConnectionClosedException e){
-            if(attemptCounter >= MAX_RECONNECT_ATTEMPTS)
+        } catch (ConnectException | FTPConnectionClosedException e) {
+            if (attemptCounter >= MAX_RECONNECT_ATTEMPTS)
                 throw new Exception("Maximum reconnects exceeded [_removeFile]");
             log.warn("Connection lost [_removeFile] .. try to reconnect ["+attemptCounter+"] ..");
             this._connect(++attemptCounter, true);
@@ -139,12 +142,12 @@ public class Ftpex {
 	}
 
     private void _uploadFile(final String fileName, final byte[]file, int attemptCounter) throws Exception {
-        try(final ByteArrayInputStream bais = new ByteArrayInputStream(file)){
+        try (final ByteArrayInputStream bais = new ByteArrayInputStream(file)) {
             this.client.setFileType(FTP.BINARY_FILE_TYPE);
-            if(this.client.storeFile(fileName, bais))
+            if (this.client.storeFile(fileName, bais))
                 log.info("file ["+fileName+"] uploaded to "+this.client.getRemoteAddress()+"::"+this.conf.login+"::"+this.client.printWorkingDirectory());
-        } catch (ConnectException | FTPConnectionClosedException e){
-            if(attemptCounter >= MAX_RECONNECT_ATTEMPTS)
+        } catch (ConnectException | FTPConnectionClosedException e) {
+            if (attemptCounter >= MAX_RECONNECT_ATTEMPTS)
                 throw new Exception("Maximum reconnects exceeded [_uploadFile]");
             log.warn("Connection lost [_uploadFile] .. try to reconnect ["+attemptCounter+"] ..");
             this._connect(++attemptCounter, true);
@@ -158,11 +161,11 @@ public class Ftpex {
 	}
 
     private void _changeSrvFolder(final String folder, int attemptCounter) throws Exception {
-        try{
-            while(!this.client.printWorkingDirectory().equals("/"))
+        try {
+            while (!this.client.printWorkingDirectory().equals("/"))
                 this.client.changeToParentDirectory();
             this.client.changeWorkingDirectory(folder);
-        } catch (ConnectException | FTPConnectionClosedException e){
+        } catch (ConnectException | FTPConnectionClosedException e) {
             if(attemptCounter >= MAX_RECONNECT_ATTEMPTS)
                 throw new Exception("Maximum reconnects exceeded [_changeSrvFolder]");
             log.warn("Connection lost [_changeSrvFolder] .. try to reconnect ["+attemptCounter+"] ..");
