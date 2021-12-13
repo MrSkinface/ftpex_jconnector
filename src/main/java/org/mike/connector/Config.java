@@ -8,16 +8,18 @@ import javax.xml.bind.annotation.*;
 @XmlRootElement(name="config")
 public class Config {
 
+    @XmlAttribute
+    public boolean debug;
 	@XmlElement(name="run_with_intervar")
 	public RunWithInterval runWithInterval;
 	@XmlElement
 	public String server;
 	@XmlElement
-	public boolean passive_mode;
+	public boolean passive_mode = true;
 	@XmlElement
 	public boolean use_epsv;
-	@XmlElement
-	public boolean debug;
+	@XmlElement(name = "debug_ftp")
+	public boolean debugFtp;
 	@XmlElement
 	public String login;
 	@XmlElement
@@ -27,11 +29,11 @@ public class Config {
 	@XmlElement
 	public Direction outbound;
 
-	public long intervalValue(){
+	public long intervalValue() {
 	    return isDaemon() ? runWithInterval.value * 1000 : 0 ;
     }
 
-	public boolean isDaemon(){
+	public boolean isDaemon() {
         return runWithInterval != null && runWithInterval.enabled;
 	}
 
@@ -100,9 +102,25 @@ class Folder {
 	public String localPath;
 	@XmlElement
 	public String serverPath;
+    @XmlElement(name="contentMatchRule")
+    public List<ContentMatchingRule> rules;
 	
 	@Override
 	public String toString() {
 		return "Folder [doctype=" + doctype + ", localPath=" + localPath + ", serverPath=" + serverPath + "]";
 	}	
+}
+
+@XmlAccessorType(XmlAccessType.FIELD)
+class ContentMatchingRule {
+
+    @XmlElement
+    public String field;
+    @XmlElement
+    public String pattern;
+
+    @Override
+    public String toString() {
+        return "ContentMatchingRule [field=" + field + ", pattern=" + pattern + "]";
+    }
 }
